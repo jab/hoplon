@@ -245,14 +245,23 @@
             (vector?* arg) (recur attr (reduce conj! kids (flatten arg)) args)
             :else          (recur attr (conj! kids arg) args)))))
 
+(defn do-respond [e a v] ;;todo: unregister handlers
+  (let [ranges (partition 3 2 v)]
+    (doseq [[idx [min br max]] (map-indexed vector ranges)]
+      (let [l (< idx (count ranges))
+            q (.matchMedia js/window (str "(max-width: " br "px)"))]
+        (.addListener q #(if (.-matches %) (do! e a min) (do! e a max)))
+        (if (and (.-matches q) (not l)) (do! e a min) (do! e a max))))))
+
 (defn- add-attributes!
   [this attr]
   (with-let [this this]
     (-> (fn [this k v]
           (with-let [this this]
-            (cond (cell? v) (do-watch v #(do! this k %2))
-                  (fn? v)   (on! this k v)
-                  :else     (do! this k v))))
+            (cond (cell?   v) (do-watch v #(do! this k %2))
+                  (fn?     v) (on! this k v)
+                  (vector? v) (do-respond this k v)
+                  :else       (do! this k v))))
         (reduce-kv this attr))))
 
 (defn- add-children!
